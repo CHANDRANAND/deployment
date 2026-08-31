@@ -1758,6 +1758,30 @@ function reopenHistoryEntryAsSheet(historyId) {
   showToast('Report reopened for editing');
 }
 
+function getHistoryFilters() {
+  return {
+    doctor: document.getElementById('historyDoctorFilter')?.value || 'all',
+    search: (document.getElementById('historySearch')?.value || '').trim().toLowerCase(),
+    from: document.getElementById('historyFromDate')?.value || '',
+    to: document.getElementById('historyToDate')?.value || ''
+  };
+}
+
+function getFilteredHistory() {
+  const filters = getHistoryFilters();
+  return state.history.filter((entry) => {
+    const patient = entry.patient || {};
+    const doctor = patient.doctor || 'Unassigned';
+    const name = patient.name || 'Unnamed patient';
+    const date = patient.date || entry.savedAt?.slice(0, 10) || '';
+    const matchesDoctor = filters.doctor === 'all' || doctor === filters.doctor;
+    const matchesSearch = !filters.search || `${name} ${doctor} ${entry.templateName || ''}`.toLowerCase().includes(filters.search);
+    const matchesFrom = !filters.from || date >= filters.from;
+    const matchesTo = !filters.to || date <= filters.to;
+    return matchesDoctor && matchesSearch && matchesFrom && matchesTo;
+  });
+}
+
 function renderHistory() {
   const editor = document.getElementById('editorContent');
 
@@ -1776,6 +1800,9 @@ function renderHistory() {
     return;
   }
 
+  const doctors = [...new Set(state.history.map((entry) => entry.patient?.doctor).filter(Boolean))].sort();
+  const entries = getFilteredHistory();
+
   editor.innerHTML = `
     <div class="panel-card">
       <div class="panel-title-row">
@@ -1785,8 +1812,15 @@ function renderHistory() {
         </div>
         <span class="badge">${state.history.length} saved</span>
       </div>
+      <div class="payment-filters">
+        <div class="field-group payment-search"><label>Search patient or doctor</label><input id="historySearch" placeholder="Search reports" value="${escapeHtml(document.getElementById('historySearch')?.value || '')}" /></div>
+        <div class="field-group"><label>Reference Doctor</label><select id="historyDoctorFilter"><option value="all">All doctors</option>${doctors.map((doctor) => `<option value="${escapeHtml(doctor)}">${escapeHtml(doctor)}</option>`).join('')}</select></div>
+        <div class="field-group"><label>From</label><input type="date" id="historyFromDate" value="${escapeHtml(document.getElementById('historyFromDate')?.value || '')}" /></div>
+        <div class="field-group"><label>To</label><input type="date" id="historyToDate" value="${escapeHtml(document.getElementById('historyToDate')?.value || '')}" /></div>
+        <button class="ghost-btn payment-clear" data-clear-history-filters>Clear</button>
+      </div>
       <div class="component-list">
-        ${state.history.map((entry) => {
+        ${entries.length ? entries.map((entry) => {
           const totalTests = entry.tests.reduce((sum, component) => sum + component.tests.length, 0);
           return `
             <div class="component-card">
@@ -1803,10 +1837,13 @@ function renderHistory() {
               </div>
             </div>
           `;
-        }).join('')}
+        }).join('') : `<p class="muted-text">No reports match these filters.</p>`}
       </div>
     </div>
   `;
+  const selectedDoctor = getHistoryFilters().doctor;
+  const doctorFilter = document.getElementById('historyDoctorFilter');
+  if (doctorFilter) doctorFilter.value = selectedDoctor;
 }
 
 function formatCurrency(amount) {
@@ -2056,6 +2093,16 @@ function handleInput(event) {
     return;
   }
 
+  if (event.target.matches('#historySearch')) {
+    const selectionStart = event.target.selectionStart;
+    const selectionEnd = event.target.selectionEnd;
+    renderHistory();
+    const searchInput = document.getElementById('historySearch');
+    searchInput?.focus();
+    searchInput?.setSelectionRange(selectionStart, selectionEnd);
+    return;
+  }
+
   if (event.target.matches('[data-field]')) {
     updateSheetField(state.activeSheetId, event.target.dataset.field, event.target.value);
     renderSummary();
@@ -2071,6 +2118,11 @@ function handleInput(event) {
 function handleChange(event) {
   if (event.target.matches('#paymentDoctorFilter, #paymentFromDate, #paymentToDate')) {
     renderPayments();
+    return;
+  }
+
+  if (event.target.matches('#historyDoctorFilter, #historyFromDate, #historyToDate')) {
+    renderHistory();
     return;
   }
 
@@ -2137,6 +2189,17 @@ function handleClick(event) {
     const doctorFilter = document.getElementById('paymentDoctorFilter');
     if (doctorFilter) doctorFilter.value = 'all';
     renderPayments();
+    return;
+  }
+
+  if (target.matches('[data-clear-history-filters]')) {
+    ['historySearch', 'historyFromDate', 'historyToDate'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+    const historyDoctorFilter = document.getElementById('historyDoctorFilter');
+    if (historyDoctorFilter) historyDoctorFilter.value = 'all';
+    renderHistory();
     return;
   }
 
