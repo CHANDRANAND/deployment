@@ -339,7 +339,7 @@ const defaultTemplates = [
 const STORAGE_KEY = 'lab-report-system-state-v5';
 const SUPABASE_URL = 'https://zqaswazhdzjkmgbjbmja.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxYXN3YXpoZHpqa21nYmpibWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MTYyNTYsImV4cCI6MjEwMzQ5MjI1Nn0.v_qkPtbVe3cHtzVnUcY1jUwgv9qqMbsMrwMUEpUr8gg';
-const AUTH_REDIRECT_URL = 'https://deployment-ar45kzclo-amongus2.vercel.app/index.html';
+const AUTH_REDIRECT_URL = 'https://deployment-liard-eight.vercel.app/index.html';
 let currentUser = null;
 let supabaseDb = null;
 
