@@ -1,55 +1,384 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { createId } from '../../utils/formatters.js';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+/* ─── Shared Font Select ──────────────────────────────────────────── */
+function FontSelect({ value, onChange, style: extraStyle = {} }) {
+  return (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ fontFamily: value || 'inherit', ...extraStyle }}
+      title="Font family"
+    >
+      <option value="">— Default font —</option>
+      <optgroup label="Web-safe">
+        {['Arial', 'Arial Black', 'Courier New', 'Georgia', 'Impact', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana'].map((f) => (
+          <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Google Fonts">
+        {['Calibri', 'Cambria', 'Garamond', 'Lato', 'Merriweather', 'Montserrat', 'Open Sans', 'Playfair Display', 'PT Sans', 'Raleway', 'Roboto', 'Source Sans 3', 'Ubuntu'].map((f) => (
+          <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+        ))}
+      </optgroup>
+    </select>
+  );
+}
+
+/* ─── Style Controls Row ─────────────────────────────────────────── */
+function StyleControls({ label, styleObj, onChange }) {
+  const upd = (patch) => onChange({ ...styleObj, ...patch });
+  return (
+    <div className="style-controls-row">
+      {label && <span className="style-ctrl-label">{label}</span>}
+      <FontSelect value={styleObj?.fontFamily || ''} onChange={(v) => upd({ fontFamily: v })} />
+      <input
+        type="number" min="8" max="48" placeholder="Size"
+        value={styleObj?.fontSize || 14}
+        onChange={(e) => upd({ fontSize: Number(e.target.value) || 14 })}
+        style={{ width: '60px' }} title="Font size"
+      />
+      <select value={styleObj?.alignment || 'left'} onChange={(e) => upd({ alignment: e.target.value })} title="Alignment">
+        <option value="left">Left</option>
+        <option value="center">Center</option>
+        <option value="right">Right</option>
+      </select>
+      <label title="Bold"><input type="checkbox" checked={!!styleObj?.bold} onChange={(e) => upd({ bold: e.target.checked })} /> B</label>
+      <label title="Italic"><input type="checkbox" checked={!!styleObj?.italic} onChange={(e) => upd({ italic: e.target.checked })} /> I</label>
+      <label title="Underline"><input type="checkbox" checked={!!styleObj?.underline} onChange={(e) => upd({ underline: e.target.checked })} /> U</label>
+    </div>
+  );
+}
+
+/* ─── Default style objects ──────────────────────────────────────── */
+const DEFAULT_TEST_STYLE = { fontSize: 14, bold: false, italic: false, underline: false, alignment: 'left', fontFamily: '' };
+const DEFAULT_HEADING_STYLE = { fontSize: 15, bold: true, italic: false, underline: false, alignment: 'left', fontFamily: '' };
+const DEFAULT_SUBHEADING_STYLE = { fontSize: 12, bold: false, italic: false, underline: false, alignment: 'left', fontFamily: '' };
+
+/* ─── Test Row ───────────────────────────────────────────────────── */
+function TestRow({ test, sectionId, sectionInEdit, onUpdate, onRemove }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const upd = (patch) => onUpdate(sectionId, test.id, patch);
+  const isHeading = test.type === 'heading';
+
+  return (
+    <div className={`test-row ${isHeading ? 'test-row--heading' : 'test-row--normal'} ${expanded ? 'test-row--expanded' : ''}`}>
+      {/* ── Summary bar ──────────────────────────────────────────── */}
+      <div className="test-row-summary">
+        {/* Type badge — always click-to-toggle */}
+        <button
+          className={`type-badge ${isHeading ? 'type-badge--heading' : 'type-badge--normal'}`}
+          type="button"
+          title="Click to toggle Heading / Normal"
+          onClick={() => upd({ type: isHeading ? 'normal' : 'heading' })}
+        >
+          {isHeading ? 'HEADING' : 'NORMAL'}
+        </button>
+
+        {/* Name — editable inline */}
+        <input
+          className="test-row-name-input"
+          value={test.name || ''}
+          onChange={(e) => upd({ name: e.target.value })}
+          placeholder="Parameter name"
+          style={{
+            fontWeight: (test.style?.bold || isHeading) ? '700' : 'normal',
+            fontStyle: test.style?.italic ? 'italic' : 'normal',
+            textDecoration: test.style?.underline ? 'underline' : 'none',
+            fontFamily: test.style?.fontFamily || 'inherit',
+            fontSize: `${test.style?.fontSize || 14}px`,
+          }}
+        />
+
+        {!isHeading && (
+          <>
+            <input
+              className="test-row-unit-input"
+              value={test.unit || ''}
+              onChange={(e) => upd({ unit: e.target.value })}
+              placeholder="Unit"
+              title="Unit"
+            />
+            <input
+              className="test-row-range-input"
+              value={test.referenceRange || ''}
+              onChange={(e) => upd({ referenceRange: e.target.value })}
+              placeholder="Reference range (use | for gender split)"
+              title="Reference range"
+            />
+          </>
+        )}
+
+        {/* Expand / Delete */}
+        <button
+          className={`expand-btn ${expanded ? 'expand-btn--open' : ''}`}
+          type="button"
+          title={expanded ? 'Collapse options' : 'Expand options'}
+          onClick={() => setExpanded((v) => !v)}
+        >▾</button>
+        <button
+          className="remove-test-btn"
+          type="button"
+          title="Delete this entry"
+          onClick={() => onRemove(sectionId, test.id)}
+        >×</button>
+      </div>
+
+      {/* ── Expanded panel ───────────────────────────────────────── */}
+      {expanded && (
+        <div className="test-row-detail">
+          {isHeading ? (
+            /* Heading-only style controls */
+            <StyleControls
+              label="Heading style"
+              styleObj={test.style || DEFAULT_HEADING_STYLE}
+              onChange={(s) => upd({ style: s })}
+            />
+          ) : (
+            <>
+              <StyleControls
+                label="Text style"
+                styleObj={test.style || DEFAULT_TEST_STYLE}
+                onChange={(s) => upd({ style: s })}
+              />
+              <div className="test-extra-fields">
+                <label>Formula
+                  <input
+                    value={test.formula || ''}
+                    onChange={(e) => upd({ formula: e.target.value })}
+                    placeholder="e.g. {albumin} / {globulin}"
+                  />
+                </label>
+                <label>Dropdown options
+                  <input
+                    value={(test.options || []).join(', ')}
+                    onChange={(e) => upd({ options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })}
+                    placeholder="Comma-separated values, e.g. Negative, Positive"
+                  />
+                </label>
+                <label>Abnormal options
+                  <input
+                    value={(test.abnormalOptions || []).join(', ')}
+                    onChange={(e) => upd({ abnormalOptions: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })}
+                    placeholder="Which options count as abnormal"
+                  />
+                </label>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Section Card ───────────────────────────────────────────────── */
+function SectionCard({ section, isEditing, onStartEdit, onDoneEdit, onUpdate, onRemoveSection, onUpdateTest, onRemoveTest, onAddTest }) {
+  const updSection = (patch) => onUpdate(section.id, patch);
+
+  return (
+    <div className={`section-card ${isEditing ? 'section-card--editing' : ''}`}>
+      {/* Section header */}
+      <div className="section-card-header">
+        <div className="section-card-title">
+          {isEditing
+            ? <input
+                className="section-name-input"
+                value={section.name}
+                onChange={(e) => updSection({ name: e.target.value })}
+                placeholder="Section name"
+              />
+            : <h4 style={{
+                margin: 0,
+                color: 'var(--primary-strong)',
+                fontFamily: section.headingStyle?.fontFamily || 'inherit',
+                fontSize: `${section.headingStyle?.fontSize || 15}px`,
+                fontWeight: section.headingStyle?.bold !== false ? '700' : '600',
+                fontStyle: section.headingStyle?.italic ? 'italic' : 'normal',
+                textDecoration: section.headingStyle?.underline ? 'underline' : 'none',
+                textAlign: section.headingStyle?.alignment || 'left',
+              }}>
+                {section.name}
+              </h4>
+          }
+          <span className="section-count-badge">{section.tests?.length || 0} entries</span>
+        </div>
+        <div className="section-card-actions">
+          {isEditing
+            ? <button className="primary-btn btn-sm" type="button" onClick={onDoneEdit}>✔ Done</button>
+            : <button className="ghost-btn btn-sm" type="button" onClick={onStartEdit}>✏ Edit Section</button>
+          }
+          {isEditing && (
+            <button className="danger-btn btn-sm" type="button" onClick={() => onRemoveSection(section.id)}>
+              🗑 Delete Section
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Section style controls (only when editing) */}
+      {isEditing && (
+        <div className="section-style-panel">
+          <StyleControls
+            label="Section heading style"
+            styleObj={section.headingStyle || DEFAULT_HEADING_STYLE}
+            onChange={(s) => updSection({ headingStyle: s })}
+          />
+          <div className="subheading-row">
+            <input
+              className="subheading-input"
+              placeholder="Optional subheading under this section"
+              value={section.subheading || ''}
+              onChange={(e) => updSection({ subheading: e.target.value })}
+            />
+          </div>
+          {section.subheading && (
+            <StyleControls
+              label="Subheading style"
+              styleObj={section.subheadingStyle || DEFAULT_SUBHEADING_STYLE}
+              onChange={(s) => updSection({ subheadingStyle: s })}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Test entries */}
+      <div className="test-entries">
+        {section.tests?.map((test) => (
+          <TestRow
+            key={test.id}
+            test={test}
+            sectionId={section.id}
+            sectionInEdit={isEditing}
+            onUpdate={onUpdateTest}
+            onRemove={onRemoveTest}
+          />
+        ))}
+        {section.tests?.length === 0 && (
+          <p className="no-tests-hint">No entries yet. Click "+ Add Heading" or "+ Add Test" to begin.</p>
+        )}
+      </div>
+
+      {/* Add buttons (always visible) */}
+      <div className="section-add-row">
+        <button className="add-heading-btn" type="button"
+          onClick={() => onAddTest(section.id, 'heading')}>
+          + Add Heading
+        </button>
+        <button className="add-test-btn" type="button"
+          onClick={() => onAddTest(section.id, 'normal')}>
+          + Add Test
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main View ──────────────────────────────────────────────────── */
 export function TemplatesView() {
   const { templates, saveTemplate, deleteTemplate } = useApp();
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => templates[0]?.id || '');
   const [draft, setDraft] = useState(null);
-  const [editing, setEditing] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState(null);
+
+  // Doctor panel state
   const [doctorEditing, setDoctorEditing] = useState(false);
   const [doctorDraft, setDoctorDraft] = useState([]);
   const [doctorName, setDoctorName] = useState('');
   const [newDoctorName, setNewDoctorName] = useState('');
 
-  const activeTmpl = templates.find((template) => template.id === selectedTemplateId) || templates[0];
+  const activeTmpl = templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
   useEffect(() => {
     setDraft(activeTmpl ? clone(activeTmpl) : null);
-    setEditing(false);
+    setEditingSectionId(null);
     setDoctorEditing(false);
     setDoctorDraft(clone(activeTmpl?.doctors || []));
   }, [selectedTemplateId, templates]);
 
   if (!draft) return null;
 
-  const updateDraft = (changes) => setDraft((current) => ({ ...current, ...changes }));
-  const updateSection = (sectionId, changes) => updateDraft({
-    sections: draft.sections.map((section) => section.id === sectionId ? { ...section, ...changes } : section)
-  });
-  const updateTest = (sectionId, testId, changes) => updateSection(sectionId, {
-    tests: draft.sections.find((section) => section.id === sectionId).tests.map((test) => test.id === testId ? { ...test, ...changes } : test)
-  });
+  /* ── Draft helpers ───────────────────────────────────────────── */
+  const updateDraft = (changes) => setDraft((d) => ({ ...d, ...changes }));
+
+  const updateSection = useCallback((sectionId, changes) => {
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s) => s.id === sectionId ? { ...s, ...changes } : s)
+    }));
+  }, []);
+
+  const updateTest = useCallback((sectionId, testId, changes) => {
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        return { ...s, tests: s.tests.map((t) => t.id === testId ? { ...t, ...changes } : t) };
+      })
+    }));
+  }, []);
+
+  const removeTest = useCallback((sectionId, testId) => {
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        return { ...s, tests: s.tests.filter((t) => t.id !== testId) };
+      })
+    }));
+  }, []);
+
+  const addTest = useCallback((sectionId, type = 'normal') => {
+    const defaultStyle = type === 'heading' ? clone(DEFAULT_HEADING_STYLE) : clone(DEFAULT_TEST_STYLE);
+    const newEntry = {
+      id: createId(),
+      type,
+      name: type === 'heading' ? 'New Heading' : 'New Parameter',
+      unit: '',
+      referenceRange: '',
+      formula: '',
+      options: [],
+      abnormalOptions: [],
+      criticalOptions: [],
+      style: defaultStyle,
+    };
+    setDraft((d) => ({
+      ...d,
+      sections: d.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+        return { ...s, tests: [...s.tests, newEntry] };
+      })
+    }));
+  }, []);
+
+  const addSection = () => {
+    const newSection = {
+      id: createId(),
+      name: 'New Test Group',
+      subheading: '',
+      headingStyle: clone(DEFAULT_HEADING_STYLE),
+      subheadingStyle: clone(DEFAULT_SUBHEADING_STYLE),
+      tests: []
+    };
+    updateDraft({ sections: [...draft.sections, newSection] });
+    setEditingSectionId(newSection.id);
+  };
+
+  const removeSection = (sectionId) => {
+    updateDraft({ sections: draft.sections.filter((s) => s.id !== sectionId) });
+    setEditingSectionId(null);
+  };
+
   const saveDraft = () => {
     saveTemplate(clone(draft));
-    setEditing(false);
+    setEditingSectionId(null);
   };
-  const discardDraft = () => {
-    setDraft(clone(activeTmpl));
-    setEditing(false);
-    setNewDoctorName('');
-  };
-  const saveDoctors = () => {
-    const next = { ...clone(activeTmpl), doctors: doctorDraft.filter(Boolean) };
-    saveTemplate(next);
-    setDoctorEditing(false);
-  };
-  const discardDoctors = () => {
-    setDoctorDraft(clone(activeTmpl.doctors || []));
-    setDoctorEditing(false);
-  };
+
+  /* ── Doctor helpers ──────────────────────────────────────────── */
   const createDoctorTemplate = () => {
     const name = doctorName.trim();
     if (!name) return;
@@ -61,61 +390,55 @@ export function TemplatesView() {
   const addDoctorName = () => {
     const name = newDoctorName.trim();
     if (!name) return;
-    const doctors = Array.from(new Set([...doctorDraft, name]));
-    setDoctorDraft(doctors);
+    setDoctorDraft(Array.from(new Set([...doctorDraft, name])));
     setDoctorEditing(true);
     setNewDoctorName('');
   };
-  const updateDoctorName = (index, value) => {
-    const doctors = [...doctorDraft];
-    doctors[index] = value;
-    setDoctorDraft(doctors);
-  };
-  const removeDoctorName = (index) => {
-    setDoctorDraft(doctorDraft.filter((_, doctorIndex) => doctorIndex !== index));
-  };
-  const addSection = () => {
-    const section = { id: createId(), name: 'New test group', tests: [] };
-    updateDraft({ sections: [...draft.sections, section] });
-  };
-  const addTest = (sectionId) => {
-    const section = draft.sections.find((item) => item.id === sectionId);
-    updateSection(sectionId, { tests: [...section.tests, { id: createId(), name: 'New parameter', unit: '', referenceRange: '', options: [], abnormalOptions: [], criticalOptions: [], criticalLow: '', criticalHigh: '', formula: '' }] });
-  };
-  const removeTest = (sectionId, testId) => {
-    const section = draft.sections.find((item) => item.id === sectionId);
-    updateSection(sectionId, { tests: section.tests.filter((test) => test.id !== testId) });
+  const saveDoctors = () => {
+    saveTemplate({ ...clone(activeTmpl), doctors: doctorDraft.filter(Boolean) });
+    setDoctorEditing(false);
   };
 
   return (
     <div className="view-container templates-view">
       <div className="view-header" style={{ marginBottom: '20px' }}>
         <h2>Test Templates & Reference Range Builder</h2>
-        <p className="muted-text">Manage test profiles, biological intervals, and automated formula parameters.</p>
+        <p className="muted-text">Manage test profiles, biological intervals, and formatting for each parameter.</p>
       </div>
 
       <div className="templates-layout" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '20px' }}>
+        {/* ── Sidebar ──────────────────────────────────────────── */}
         <div className="templates-sidebar card">
           <h3 style={{ fontSize: '1rem', marginBottom: '12px' }}>Templates</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {templates.map((template) => (
-              <button key={template.id} className={`nav-pill ${template.id === draft.id ? 'active' : ''}`} style={{ textAlign: 'left', width: '100%', justifyContent: 'flex-start' }} type="button" onClick={() => setSelectedTemplateId(template.id)}>
-                {template.forDoctor ? `${template.forDoctor} Template` : template.name}
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                className={`nav-pill ${t.id === draft.id ? 'active' : ''}`}
+                style={{ textAlign: 'left', width: '100%', justifyContent: 'flex-start' }}
+                type="button"
+                onClick={() => setSelectedTemplateId(t.id)}
+              >
+                {t.forDoctor ? `${t.forDoctor} Template` : t.name}
               </button>
             ))}
           </div>
+
+          {/* Doctor template creator */}
           <div className="doctor-template-panel">
-          <div className="doctor-template-heading">
-            <div>
-              <h3>Doctors Templates</h3>
-              <p>Create a doctor-specific copy or add a doctor to this template.</p>
+            <div className="doctor-template-heading">
+              <div>
+                <h3>Doctors Templates</h3>
+                <p>Create a doctor-specific copy of this template.</p>
+              </div>
+              <span className="doctor-template-mark">DR</span>
             </div>
-            <span className="doctor-template-mark">DR</span>
+            <label className="doctor-template-label">Create template for</label>
+            <input className="doctor-template-input" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} placeholder="e.g. Dr. Sharma" />
+            <button className="secondary-btn doctor-template-action" type="button" onClick={createDoctorTemplate}>Create from selected</button>
           </div>
-          <label className="doctor-template-label">Create template for</label>
-          <input className="doctor-template-input" value={doctorName} onChange={(event) => setDoctorName(event.target.value)} placeholder="e.g. Dr. Sharma" />
-          <button className="secondary-btn doctor-template-action" type="button" onClick={createDoctorTemplate}>Create from selected</button>
-          </div>
+
+          {/* Doctor directory */}
           <div className="doctor-directory-panel">
             <div className="doctor-template-heading">
               <div>
@@ -125,24 +448,28 @@ export function TemplatesView() {
               <span className="doctor-count">{doctorDraft.length}</span>
             </div>
             <label className="doctor-template-label">Add doctor</label>
-            <input className="doctor-template-input" value={newDoctorName} onChange={(event) => setNewDoctorName(event.target.value)} placeholder="Search or add doctor" list="templateDoctorSuggestions" />
+            <input className="doctor-template-input" value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Search or add doctor" list="templateDoctorSuggestions" />
             <datalist id="templateDoctorSuggestions">
-              {(draft.doctors || []).map((doctor) => <option key={doctor} value={doctor} />)}
+              {(draft.doctors || []).map((d) => <option key={d} value={d} />)}
             </datalist>
             <div className="doctor-directory-actions">
-              {!doctorEditing ? <button className="ghost-btn doctor-template-action" type="button" onClick={() => setDoctorEditing(true)}>Edit doctors</button> : <>
-                <button className="ghost-btn doctor-template-action" type="button" onClick={discardDoctors}>Discard</button>
-                <button className="primary-btn doctor-template-action" type="button" onClick={saveDoctors}>Save doctors</button>
-              </>}
+              {!doctorEditing
+                ? <button className="ghost-btn doctor-template-action" type="button" onClick={() => setDoctorEditing(true)}>Edit doctors</button>
+                : <>
+                    <button className="ghost-btn doctor-template-action" type="button" onClick={() => { setDoctorDraft(clone(activeTmpl.doctors || [])); setDoctorEditing(false); }}>Discard</button>
+                    <button className="primary-btn doctor-template-action" type="button" onClick={saveDoctors}>Save doctors</button>
+                  </>
+              }
               <button className="ghost-btn doctor-template-action" type="button" onClick={addDoctorName}>Add doctor</button>
             </div>
             <div className="doctor-template-list">
-              {doctorDraft.length ? doctorDraft.map((doctor, index) => (
-                <div className="doctor-template-row" key={`${doctor}-${index}`}>
-                  {doctorEditing ? (
-                    <input className="doctor-template-input" value={doctor} onChange={(event) => updateDoctorName(index, event.target.value)} />
-                  ) : <span>{doctor}</span>}
-                  {doctorEditing && <button className="doctor-template-remove" type="button" onClick={() => removeDoctorName(index)} aria-label={`Remove ${doctor}`} title={`Remove ${doctor}`}>×</button>}
+              {doctorDraft.length ? doctorDraft.map((d, i) => (
+                <div className="doctor-template-row" key={`${d}-${i}`}>
+                  {doctorEditing
+                    ? <input className="doctor-template-input" value={d} onChange={(e) => { const arr = [...doctorDraft]; arr[i] = e.target.value; setDoctorDraft(arr); }} />
+                    : <span>{d}</span>
+                  }
+                  {doctorEditing && <button className="doctor-template-remove" type="button" onClick={() => setDoctorDraft(doctorDraft.filter((_, idx) => idx !== i))}>×</button>}
                 </div>
               )) : 'No doctors added'}
             </div>
@@ -150,148 +477,50 @@ export function TemplatesView() {
           </div>
         </div>
 
+        {/* ── Main panel ───────────────────────────────────────── */}
         <div className="template-details card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            {editing ? <input value={draft.name || ''} onChange={(event) => updateDraft({ name: event.target.value })} /> : <h3 style={{ margin: 0 }}>{draft.name}</h3>}
+          {/* Template name + save bar */}
+          <div className="template-top-bar">
+            <input
+              className="template-name-input"
+              value={draft.name || ''}
+              onChange={(e) => updateDraft({ name: e.target.value })}
+              placeholder="Template name"
+            />
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span className="badge" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)' }}>{draft.sections?.length || 0} Test Groups</span>
-              {editing ? <>
-                <button className="ghost-btn" type="button" onClick={discardDraft}>Discard</button>
-                <button className="primary-btn" type="button" onClick={saveDraft}>Save</button>
-              </> : <button className="ghost-btn" type="button" onClick={() => setEditing(true)}>Edit</button>}
+              <span className="badge" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                {draft.sections?.length || 0} Sections
+              </span>
+              <button className="primary-btn" type="button" onClick={saveDraft}>💾 Save Template</button>
+              {draft.forDoctor && (
+                <button className="ghost-btn" type="button" style={{ color: 'var(--danger)' }} onClick={() => deleteTemplate(draft.id)}>
+                  Delete Template
+                </button>
+              )}
             </div>
           </div>
 
-          {editing && (
-            <div className="field-group" style={{ marginBottom: '16px' }}>
-              <label>Assigned doctor</label>
-              <input value={draft.forDoctor || ''} placeholder="Default template" onChange={(event) => updateDraft({ forDoctor: event.target.value || null, doctors: event.target.value ? [event.target.value] : draft.doctors })} />
-            </div>
-          )}
-
-          <div className="sections-accordion" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Section cards */}
+          <div className="sections-list">
             {draft.sections?.map((section) => (
-              <div key={section.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  {editing ? <input value={section.name} onChange={(event) => updateSection(section.id, { name: event.target.value })} /> : <h4 style={{ margin: 0, color: 'var(--primary-strong)' }}>{section.name}</h4>}
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{section.tests?.length || 0} Subtests</span>
-                </div>
-
-                {editing && <div className="template-group-style-controls">
-                  <select value={section.headingType || 'normal'} onChange={(event) => updateSection(section.id, { headingType: event.target.value })}>
-                    <option value="test">Test group name</option>
-                    <option value="normal">Normal heading</option>
-                  </select>
-                  <input type="number" min="8" max="48" placeholder="Heading size" value={section.headingStyle?.fontSize || 15} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, fontSize: Number(event.target.value) || 15 } })} />
-                  <select value={section.headingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, fontFamily: event.target.value } })} style={{ fontFamily: section.headingStyle?.fontFamily || 'inherit' }}>
-                    <option value="">— Default font —</option>
-                    <optgroup label="Web-safe classics">
-                      <option value="Arial">Arial</option>
-                      <option value="Arial Black">Arial Black</option>
-                      <option value="Courier New">Courier New</option>
-                      <option value="Georgia">Georgia</option>
-                      <option value="Impact">Impact</option>
-                      <option value="Tahoma">Tahoma</option>
-                      <option value="Times New Roman">Times New Roman</option>
-                      <option value="Trebuchet MS">Trebuchet MS</option>
-                      <option value="Verdana">Verdana</option>
-                    </optgroup>
-                    <optgroup label="Modern / Google Fonts">
-                      <option value="Calibri">Calibri</option>
-                      <option value="Cambria">Cambria</option>
-                      <option value="Garamond">Garamond</option>
-                      <option value="Lato">Lato</option>
-                      <option value="Merriweather">Merriweather</option>
-                      <option value="Montserrat">Montserrat</option>
-                      <option value="Open Sans">Open Sans</option>
-                      <option value="Playfair Display">Playfair Display</option>
-                      <option value="PT Sans">PT Sans</option>
-                      <option value="Raleway">Raleway</option>
-                      <option value="Roboto">Roboto</option>
-                      <option value="Source Sans 3">Source Sans 3</option>
-                      <option value="Ubuntu">Ubuntu</option>
-                    </optgroup>
-                  </select>
-                  <select value={section.headingStyle?.alignment || 'left'} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, alignment: event.target.value } })}>
-                    <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
-                  </select>
-                  <label><input type="checkbox" checked={Boolean(section.headingStyle?.bold)} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, bold: event.target.checked } })} /> Bold</label>
-                  <label><input type="checkbox" checked={Boolean(section.headingStyle?.italic)} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, italic: event.target.checked } })} /> Italic</label>
-                  <label><input type="checkbox" checked={Boolean(section.headingStyle?.underline)} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, underline: event.target.checked } })} /> Underline</label>
-                  <input className="template-group-subheading" placeholder="Optional subheading under this group" value={section.subheading || ''} onChange={(event) => updateSection(section.id, { subheading: event.target.value })} />
-                  <input type="number" min="8" max="36" placeholder="Subheading size" value={section.subheadingStyle?.fontSize || 12} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, fontSize: Number(event.target.value) || 12 } })} />
-                  <select value={section.subheadingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, fontFamily: event.target.value } })} style={{ fontFamily: section.subheadingStyle?.fontFamily || 'inherit' }}>
-                    <option value="">— Default font —</option>
-                    <optgroup label="Web-safe classics">
-                      <option value="Arial">Arial</option>
-                      <option value="Arial Black">Arial Black</option>
-                      <option value="Courier New">Courier New</option>
-                      <option value="Georgia">Georgia</option>
-                      <option value="Impact">Impact</option>
-                      <option value="Tahoma">Tahoma</option>
-                      <option value="Times New Roman">Times New Roman</option>
-                      <option value="Trebuchet MS">Trebuchet MS</option>
-                      <option value="Verdana">Verdana</option>
-                    </optgroup>
-                    <optgroup label="Modern / Google Fonts">
-                      <option value="Calibri">Calibri</option>
-                      <option value="Cambria">Cambria</option>
-                      <option value="Garamond">Garamond</option>
-                      <option value="Lato">Lato</option>
-                      <option value="Merriweather">Merriweather</option>
-                      <option value="Montserrat">Montserrat</option>
-                      <option value="Open Sans">Open Sans</option>
-                      <option value="Playfair Display">Playfair Display</option>
-                      <option value="PT Sans">PT Sans</option>
-                      <option value="Raleway">Raleway</option>
-                      <option value="Roboto">Roboto</option>
-                      <option value="Source Sans 3">Source Sans 3</option>
-                      <option value="Ubuntu">Ubuntu</option>
-                    </optgroup>
-                  </select>
-                  <select value={section.subheadingStyle?.alignment || 'left'} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, alignment: event.target.value } })}>
-                    <option value="left">Subheading left</option><option value="center">Subheading center</option><option value="right">Subheading right</option>
-                  </select>
-                  <label><input type="checkbox" checked={Boolean(section.subheadingStyle?.bold)} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, bold: event.target.checked } })} /> Subheading bold</label>
-                  <label><input type="checkbox" checked={Boolean(section.subheadingStyle?.italic)} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, italic: event.target.checked } })} /> Subheading italic</label>
-                  <label><input type="checkbox" checked={Boolean(section.subheadingStyle?.underline)} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, underline: event.target.checked } })} /> Subheading underline</label>
-                </div>}
-
-                <div className="table-responsive">
-                  <table className="test-table" style={{ fontSize: '0.85rem' }}>
-                    <thead><tr><th>Parameter</th><th>Unit</th><th>Reference Interval</th><th>Critical Limits / Formula</th>{editing && <th aria-label="Actions" />}</tr></thead>
-                    <tbody>
-                      {section.tests?.map((test) => (
-                        <tr key={test.id}>
-                          <td>{editing ? <input value={test.name || ''} onChange={(event) => updateTest(section.id, test.id, { name: event.target.value })} /> : <strong>{test.name}</strong>}</td>
-                          <td>{editing ? <input value={test.unit || ''} onChange={(event) => updateTest(section.id, test.id, { unit: event.target.value })} /> : (test.unit || '—')}</td>
-                          <td>{editing ? <textarea rows="2" value={test.referenceRange || ''} onChange={(event) => updateTest(section.id, test.id, { referenceRange: event.target.value })} /> : (test.referenceRange || '—')}</td>
-                          <td>
-                            {editing ? <>
-                              <input placeholder="Formula" value={test.formula || ''} onChange={(event) => updateTest(section.id, test.id, { formula: event.target.value })} />
-                              <input placeholder="Critical low" value={test.criticalLow || ''} onChange={(event) => updateTest(section.id, test.id, { criticalLow: event.target.value })} />
-                              <input placeholder="Critical high" value={test.criticalHigh || ''} onChange={(event) => updateTest(section.id, test.id, { criticalHigh: event.target.value })} />
-                              <input placeholder="Options, comma separated" value={(test.options || []).join(', ')} onChange={(event) => updateTest(section.id, test.id, { options: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} />
-                            </> : <>
-                              {test.formula && <span className="badge">Formula: {test.formula}</span>}
-                              {test.criticalLow && <span className="badge" style={{ color: 'var(--danger)' }}>Min: {test.criticalLow}</span>}
-                              {test.criticalHigh && <span className="badge" style={{ color: 'var(--danger)' }}>Max: {test.criticalHigh}</span>}
-                              {!test.formula && !test.criticalLow && !test.criticalHigh && '—'}
-                            </>}
-                          </td>
-                          {editing && <td><button className="doctor-template-remove" type="button" onClick={() => removeTest(section.id, test.id)} aria-label={`Remove ${test.name || 'parameter'}`} title="Remove parameter">×</button></td>}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {editing && <button className="secondary-btn" type="button" onClick={() => addTest(section.id)}>+ Add parameter</button>}
-              </div>
+              <SectionCard
+                key={section.id}
+                section={section}
+                isEditing={editingSectionId === section.id}
+                onStartEdit={() => setEditingSectionId(section.id)}
+                onDoneEdit={() => setEditingSectionId(null)}
+                onUpdate={updateSection}
+                onRemoveSection={removeSection}
+                onUpdateTest={updateTest}
+                onRemoveTest={removeTest}
+                onAddTest={addTest}
+              />
             ))}
           </div>
 
-          {editing && <button className="secondary-btn" type="button" onClick={addSection}>+ Add test group</button>}
-          {editing && draft.forDoctor && <button className="ghost-btn" type="button" style={{ marginLeft: '8px' }} onClick={() => deleteTemplate(draft.id)}>Delete doctor template</button>}
+          <button className="secondary-btn add-section-btn" type="button" onClick={addSection}>
+            + Add New Section
+          </button>
         </div>
       </div>
     </div>

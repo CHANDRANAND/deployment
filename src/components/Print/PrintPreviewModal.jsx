@@ -133,6 +133,30 @@ export function PrintPreviewModal() {
                         textDecoration: style.underline ? 'underline' : 'none'
                       };
 
+                      // Heading-type rows: full-width label, no value/range cells
+                      if (t.type === 'heading') {
+                        return (
+                          <tr key={t.id}>
+                            <td
+                              colSpan={includeUnitsAsSeparateField ? 4 : 3}
+                              style={{
+                                padding: '8px 6px 2px',
+                                fontFamily: t.style?.fontFamily || 'inherit',
+                                fontSize: `${t.style?.fontSize || 13}px`,
+                                fontWeight: t.style?.bold !== false ? '700' : 'normal',
+                                fontStyle: t.style?.italic ? 'italic' : 'normal',
+                                textDecoration: t.style?.underline ? 'underline' : 'none',
+                                textAlign: t.style?.alignment || 'left',
+                                color: '#2d4a6a',
+                                borderTop: '1px solid #e0eaf4',
+                              }}
+                            >
+                              {t.name}
+                            </td>
+                          </tr>
+                        );
+                      }
+
                       return (
                         <tr key={t.id}>
                           <td style={{ padding: '6px', verticalAlign: 'top', ...textStyle }}>{t.name}</td>
