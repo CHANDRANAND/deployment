@@ -21,6 +21,15 @@ export function PrintPreviewModal() {
     window.print();
   };
 
+  const handleDownloadDocx = () => {
+    const reportEl = document.getElementById('printableReport');
+    if (!reportEl) return;
+    const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${reportEl.innerHTML}</body></html>`;
+    const blob = window.htmlDocx.asBlob(htmlContent);
+    const patientName = (patient?.name || 'Report').replace(/\s+/g, '_');
+    window.saveAs(blob, `${patientName}_Report.docx`);
+  };
+
   const formatReferenceRange = (range) => {
     if (!range) return '—';
     const text = String(range).replace(/\s*\|\s*/g, '\n');
@@ -60,6 +69,9 @@ export function PrintPreviewModal() {
             </button>
             <button className="primary-btn" onClick={handlePrint}>
               Print / Save PDF
+            </button>
+            <button className="primary-btn" onClick={handleDownloadDocx} style={{ background: '#1a73e8' }}>
+              ⬇ Download .docx
             </button>
           </div>
         </header>
