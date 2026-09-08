@@ -183,8 +183,34 @@ export function TemplatesView() {
                     <option value="normal">Normal heading</option>
                   </select>
                   <input type="number" min="8" max="48" placeholder="Heading size" value={section.headingStyle?.fontSize || 15} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, fontSize: Number(event.target.value) || 15 } })} />
-                  <select value={section.headingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, fontFamily: event.target.value } })}>
-                    <option value="">Heading font</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Verdana">Verdana</option>
+                  <select value={section.headingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, fontFamily: event.target.value } })} style={{ fontFamily: section.headingStyle?.fontFamily || 'inherit' }}>
+                    <option value="">— Default font —</option>
+                    <optgroup label="Web-safe classics">
+                      <option value="Arial">Arial</option>
+                      <option value="Arial Black">Arial Black</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Impact">Impact</option>
+                      <option value="Tahoma">Tahoma</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Trebuchet MS">Trebuchet MS</option>
+                      <option value="Verdana">Verdana</option>
+                    </optgroup>
+                    <optgroup label="Modern / Google Fonts">
+                      <option value="Calibri">Calibri</option>
+                      <option value="Cambria">Cambria</option>
+                      <option value="Garamond">Garamond</option>
+                      <option value="Lato">Lato</option>
+                      <option value="Merriweather">Merriweather</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Open Sans">Open Sans</option>
+                      <option value="Playfair Display">Playfair Display</option>
+                      <option value="PT Sans">PT Sans</option>
+                      <option value="Raleway">Raleway</option>
+                      <option value="Roboto">Roboto</option>
+                      <option value="Source Sans 3">Source Sans 3</option>
+                      <option value="Ubuntu">Ubuntu</option>
+                    </optgroup>
                   </select>
                   <select value={section.headingStyle?.alignment || 'left'} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, alignment: event.target.value } })}>
                     <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
@@ -194,8 +220,34 @@ export function TemplatesView() {
                   <label><input type="checkbox" checked={Boolean(section.headingStyle?.underline)} onChange={(event) => updateSection(section.id, { headingStyle: { ...section.headingStyle, underline: event.target.checked } })} /> Underline</label>
                   <input className="template-group-subheading" placeholder="Optional subheading under this group" value={section.subheading || ''} onChange={(event) => updateSection(section.id, { subheading: event.target.value })} />
                   <input type="number" min="8" max="36" placeholder="Subheading size" value={section.subheadingStyle?.fontSize || 12} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, fontSize: Number(event.target.value) || 12 } })} />
-                  <select value={section.subheadingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, fontFamily: event.target.value } })}>
-                    <option value="">Subheading font</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Verdana">Verdana</option>
+                  <select value={section.subheadingStyle?.fontFamily || ''} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, fontFamily: event.target.value } })} style={{ fontFamily: section.subheadingStyle?.fontFamily || 'inherit' }}>
+                    <option value="">— Default font —</option>
+                    <optgroup label="Web-safe classics">
+                      <option value="Arial">Arial</option>
+                      <option value="Arial Black">Arial Black</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Impact">Impact</option>
+                      <option value="Tahoma">Tahoma</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Trebuchet MS">Trebuchet MS</option>
+                      <option value="Verdana">Verdana</option>
+                    </optgroup>
+                    <optgroup label="Modern / Google Fonts">
+                      <option value="Calibri">Calibri</option>
+                      <option value="Cambria">Cambria</option>
+                      <option value="Garamond">Garamond</option>
+                      <option value="Lato">Lato</option>
+                      <option value="Merriweather">Merriweather</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Open Sans">Open Sans</option>
+                      <option value="Playfair Display">Playfair Display</option>
+                      <option value="PT Sans">PT Sans</option>
+                      <option value="Raleway">Raleway</option>
+                      <option value="Roboto">Roboto</option>
+                      <option value="Source Sans 3">Source Sans 3</option>
+                      <option value="Ubuntu">Ubuntu</option>
+                    </optgroup>
                   </select>
                   <select value={section.subheadingStyle?.alignment || 'left'} onChange={(event) => updateSection(section.id, { subheadingStyle: { ...section.subheadingStyle, alignment: event.target.value } })}>
                     <option value="left">Subheading left</option><option value="center">Subheading center</option><option value="right">Subheading right</option>
