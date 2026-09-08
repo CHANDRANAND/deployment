@@ -293,6 +293,13 @@ export function TemplatesView() {
 
   const activeTmpl = templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
+  // Keep selectedTemplateId pointing at a real template when the list changes
+  useEffect(() => {
+    if (templates.length === 0) return;
+    const exists = templates.some((t) => t.id === selectedTemplateId);
+    if (!exists) setSelectedTemplateId(templates[0].id);
+  }, [templates]);
+
   useEffect(() => {
     setDraft(activeTmpl ? clone(activeTmpl) : null);
     setEditingSectionId(null);
@@ -300,7 +307,16 @@ export function TemplatesView() {
     setDoctorDraft(clone(activeTmpl?.doctors || []));
   }, [selectedTemplateId, templates]);
 
-  if (!draft) return null;
+  if (!draft) {
+    return (
+      <div className="view-container templates-view">
+        <div className="view-header" style={{ marginBottom: '20px' }}>
+          <h2>Test Templates &amp; Reference Range Builder</h2>
+          <p className="muted-text">No templates found. Try refreshing the page or check your data.</p>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Draft helpers ───────────────────────────────────────────── */
   const updateDraft = (changes) => setDraft((d) => ({ ...d, ...changes }));
