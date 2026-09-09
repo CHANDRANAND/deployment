@@ -307,19 +307,8 @@ export function TemplatesView() {
     setDoctorDraft(clone(activeTmpl?.doctors || []));
   }, [selectedTemplateId, templates]);
 
-  if (!draft) {
-    return (
-      <div className="view-container templates-view">
-        <div className="view-header" style={{ marginBottom: '20px' }}>
-          <h2>Test Templates &amp; Reference Range Builder</h2>
-          <p className="muted-text">No templates found. Try refreshing the page or check your data.</p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Draft helpers ───────────────────────────────────────────── */
-  const updateDraft = (changes) => setDraft((d) => ({ ...d, ...changes }));
+  /* ── ALL hooks MUST be before any early return (Rules of Hooks) ─ */
+  const updateDraft = useCallback((changes) => setDraft((d) => ({ ...d, ...changes })), []);
 
   const updateSection = useCallback((sectionId, changes) => {
     setDraft((d) => ({
@@ -371,6 +360,19 @@ export function TemplatesView() {
     }));
   }, []);
 
+  /* ── Safe to early-return here — all hooks already called above ─ */
+  if (!draft) {
+    return (
+      <div className="view-container templates-view">
+        <div className="view-header" style={{ marginBottom: '20px' }}>
+          <h2>Test Templates &amp; Reference Range Builder</h2>
+          <p className="muted-text">Loading templates…</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Non-hook helpers (need draft, so defined after guard) ──── */
   const addSection = () => {
     const newSection = {
       id: createId(),
