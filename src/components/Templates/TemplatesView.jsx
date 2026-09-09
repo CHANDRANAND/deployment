@@ -280,8 +280,14 @@ function SectionCard({ section, isEditing, onStartEdit, onDoneEdit, onUpdate, on
 
 /* ─── Main View ──────────────────────────────────────────────────── */
 export function TemplatesView() {
-  const { templates, saveTemplate, deleteTemplate } = useApp();
-  const [selectedTemplateId, setSelectedTemplateId] = useState(() => templates[0]?.id || '');
+  // Guard: always call useApp() unconditionally so hook count never changes.
+  const appCtx = useApp();
+  const templates = appCtx?.templates ?? [];
+  const saveTemplate = appCtx?.saveTemplate;
+  const deleteTemplate = appCtx?.deleteTemplate;
+
+  // All useState hooks must be called unconditionally (Rules of Hooks).
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [draft, setDraft] = useState(null);
   const [editingSectionId, setEditingSectionId] = useState(null);
 
@@ -293,12 +299,12 @@ export function TemplatesView() {
 
   const activeTmpl = templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
-  // Keep selectedTemplateId pointing at a real template when the list changes
+  // Initialise + keep selectedTemplateId pointing at a real template when the list changes.
   useEffect(() => {
     if (templates.length === 0) return;
     const exists = templates.some((t) => t.id === selectedTemplateId);
-    if (!exists) setSelectedTemplateId(templates[0].id);
-  }, [templates]);
+    if (!exists || selectedTemplateId === '') setSelectedTemplateId(templates[0].id);
+  }, [templates, selectedTemplateId]);
 
   useEffect(() => {
     setDraft(activeTmpl ? clone(activeTmpl) : null);
